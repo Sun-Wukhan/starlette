@@ -104,7 +104,6 @@ class CORSMiddleware:
         requested_method = request_headers["access-control-request-method"]
         requested_headers = request_headers.get("access-control-request-headers")
         requested_private_network = request_headers.get("access-control-request-private-network")
-
         headers = dict(self.preflight_headers)
         failures: list[str] = []
 
@@ -125,6 +124,9 @@ class CORSMiddleware:
             headers["Access-Control-Allow-Headers"] = requested_headers
         elif requested_headers is not None:
             for header in [h.lower() for h in requested_headers.split(",")]:
+                if not header.strip():
+                    continue
+                
                 if header.strip() not in self.allow_headers:
                     failures.append("headers")
                     break
