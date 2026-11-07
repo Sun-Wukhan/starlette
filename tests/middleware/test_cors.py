@@ -625,3 +625,80 @@ def test_cors_vary_origin_with_gzip(test_client_factory: TestClientFactory) -> N
         "Accept-Encoding",
         "Origin",
     }
+
+
+def test_cors_preflight_empty_request_headers_trailing(test_client_factory: Callable[..., TestClient]) -> None:
+    app = Starlette(
+        routes=[Route("/", endpoint=homepage)],
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=["https://example.org"],
+                allow_headers=["x-token", "authorization"],
+                allow_methods=["GET"],
+            )
+        ],
+    )
+    client = test_client_factory(app)
+    response = client.options(
+        "/",
+        headers={
+            "Origin": "https://example.org",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "x-token, authorization, ",
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers["access-control-allow-headers"] == "x-token, authorization, "
+
+
+def test_cors_preflight_empty_request_headers_intermediate(test_client_factory: Callable[..., TestClient]) -> None:
+    app = Starlette(
+        routes=[Route("/", endpoint=homepage)],
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=["https://example.org"],
+                allow_headers=["x-token", "authorization"],
+                allow_methods=["GET"],
+            )
+        ],
+    )
+    client = test_client_factory(app)
+    response = client.options(
+        "/",
+        headers={
+            "Origin": "https://example.org",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "x-token, , authorization",
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers["access-control-allow-headers"] == "x-token, , authorization"
+
+
+def test_cors_preflight_empty_element_does_not_allow_disallowed_header(
+    test_client_factory: Callable[..., TestClient],
+) -> None:
+    app = Starlette(
+        routes=[Route("/", endpoint=homepage)],
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=["https://example.org"],
+                allow_headers=["x-token", "authorization"],
+                allow_methods=["GET"],
+            )
+        ],
+    )
+    client = test_client_factory(app)
+    response = client.options(
+        "/",
+        headers={
+            "Origin": "https://example.org",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "x-token, , X-Nope",
+        },
+    )
+    assert response.status_code == 400, response.text
+    assert response.text == "Disallowed CORS headers"
